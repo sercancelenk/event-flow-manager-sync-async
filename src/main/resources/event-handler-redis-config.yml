@@ -1,0 +1,5 @@
+redis:
+  master:
+    url: ${EVENT_HANDLER_REDIS_MASTER:localhost:6379}
+    password: ${EVENT_HANDLER_REDIS_MASTER_PASSWORD:123456}
+#  slaves: ${EVENT_HANDLER_REDIS_SLAVE_1_HOST:localhost:16379,localhost:26379}

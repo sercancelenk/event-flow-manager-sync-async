@@ -1,0 +1,44 @@
+quartz:
+  properties:
+    org:
+      quartz:
+        scheduler:
+          instanceName: ${EVENT_HANDLER_QUARTZ_CLUSTERNAME:EventHandlerClusteredScheduler}
+          instanceId: AUTO
+          jobFactory:
+            class: org.quartz.simpl.SimpleJobFactory
+          makeSchedulerThreadDaemon: true
+        threadPool:
+          class: org.quartz.simpl.SimpleThreadPool
+          threadCount: 20
+          makeThreadsDaemons: true
+        jobStore:
+          class: org.quartz.impl.jdbcjobstore.JobStoreTX
+          driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+          dataSource: quartzDS
+          tablePrefix: QRTZ_
+          isClustered: true
+          misfireThreshold: 60000
+          clusterCheckinInterval: 20000
+          useProperties: true
+        dataSource:
+          quartzDS:
+            driver: ${EVENT_HANDLER_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+            maxConnections: ${EVENT_HANDLER_QUARTZ_JDBC_MAX_CONNECTIONS:2}
+            validationQuery: select 1
+            URL: ${EVENT_HANDLER_DATASOURCE_URL:jdbc:postgresql://${EVENT_HANDLER_DATASOURCE_HOST:localhost}:${EVENT_HANDLER_DATASOURCE_PORT:5432}/${EVENT_HANDLER_DATASOURCE_DB_NAME:flowdb?reWriteBatchedInserts=true}}
+            user: ${EVENT_HANDLER_DATASOURCE_USER:sardisuser}
+            password: ${EVENT_HANDLER_DATASOURCE_PASSWORD:123456}
+            provider: hikaricp
+            maximumPoolSize: ${EVENT_HANDLER_QUARTZ_JDBC_MAX_POOL_SIZE:2}
+            minimumIdle: ${EVENT_HANDLER_QUARTZ_JDBC_CONN_MIN_IDLE:1}
+            connectionTestQuery: SELECT 1
+            validationTimeout: 5000
+            idleTimeout: ${EVENT_HANDLER_QUARTZ_JDBC_IDLE_TIMEOUT:60000}
+        plugin:
+          shutdownHook:
+            class: org.quartz.plugins.management.ShutdownHookPlugin
+            cleanShutdown: TRUE
+
+
+

@@ -1,0 +1,37 @@
+event-handler:
+  datasource:
+    url: ${EVENT_HANDLER_DATASOURCE_URL:jdbc:postgresql://${EVENT_HANDLER_DATASOURCE_HOST:localhost}:${EVENT_HANDLER_DATASOURCE_PORT:5432}/${EVENT_HANDLER_DATASOURCE_DB_NAME:flowdb?reWriteBatchedInserts=true}}
+    driver-class-name: ${EVENT_HANDLER_DATASOURCE_DRIVER_CLASS_NAME:org.postgresql.Driver}
+    username: ${EVENT_HANDLER_DATASOURCE_USER:sardisuser}
+    password: ${EVENT_HANDLER_DATASOURCE_PASSWORD:123456}
+    hikari:
+      pool-name: ${EVENT_HANDLER_DATASOURCE_HIKARI_POOL_NAME:EventHandlerPostgreHikariPool}
+      auto-commit: ${EVENT_HANDLER_DATASOURCE_HIKARI_AUTO_COMMIT:false}
+      maximum-pool-size: ${EVENT_HANDLER_DATASOURCE_HIKARI_MAX_POOL_SIZE:10}
+      minimum-idle: ${EVENT_HANDLER_DATASOURCE_HIKARI_MIN_IDLE:3}
+      connectionTimeout: ${EVENT_HANDLER_DATASOURCE_HIKARI_CONN_TIMEOUT:10000}
+      idle-timeout: ${EVENT_HANDLER_DATASOURCE_HIKARI_IDLE_TIMEOUT:60000}
+  jpa:
+    properties:
+      hibernate:
+        show-sql: ${EVENT_HANDLER_DATASOURCE_SHOW_SQL:true}
+        ddl-auto: ${EVENT_HANDLER_DATASOURCE_AUTO_DDL:update}
+        jdbc:
+          batch_size: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_BATCH_SIZE:30}
+        generate_statistics: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_GENERATE_STATISTICS:false}
+        order_inserts: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_ORDER_INSERTS:true} #Optimize Batch Inserts of Parent-Child Relationships And Batch Per Transaction
+        order_updates: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_ORDER_UPDATES:true} #Optimize Batch Updates of Parent-Child Relationships And Batch Per Transaction
+        dialect: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_DIALECT:org.hibernate.dialect.PostgreSQL10Dialect}
+        #if you are using resource-local transactions (which is quite the norm when using Spring framework), you should definitely configure the connection pool (e.g. HikariCP) to disable the auto-commit commit, and provide the connection acquisition delay Hibernate configuration property
+        connection.provider_disables_autocommit: ${EVENT_HANDLER_DATASOURCE_HIBERNATE_CONN_PROVIDER_DISABLES_AUTOCOMMIT:true}
+        package_to_scan: ${EVENT_HANDLER_JPA_ENTITY_PACKAGES_TO_SCAN:byzas.libs.flow.manager.async.config.jpa.entity}
+        use-second-level-cache: false
+        current_session_context_class: org.springframework.orm.hibernate5.SpringSessionContext
+        enable_lazy_load_no_trans: true
+
+## Naming strategy
+#  spring.jpa.hibernate.naming.implicit-strategy=org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyHbmImpl
+#  spring.jpa.hibernate.naming.physical-strategy=org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
+
+# View binding values parameter
+#org.hibernate.type.descriptor.sql=trace

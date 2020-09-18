@@ -1,0 +1,40 @@
+event:
+  consumer-props-defaults:
+    "[bootstrap.servers]": ${EVENT_HANDLER_BOOTSTRAP_SERVERS:127.0.0.1:9092,127.0.0.1:9093}
+    "[value.deserializer]": org.springframework.kafka.support.serializer.ErrorHandlingDeserializer2
+    "[spring.deserializer.value.delegate.class]": org.springframework.kafka.support.serializer.JsonDeserializer
+    "[key.deserializer]": org.springframework.kafka.support.serializer.ErrorHandlingDeserializer2
+    "[spring.deserializer.key.delegate.class]": org.apache.kafka.common.serialization.StringDeserializer
+    "[spring.json.trusted.packages]": byzas.libs.flow.manager.async.model.event
+    "[group.id]": ${EVENT_DEFAULT_GROUP_ID:FindSubscriptionsDeltaListenerGroup}
+    "[max.poll.records]": ${EVENT_CONSUMER_DEFAULTS_MAX_POLL_RECORDS:100}
+    "[max.poll.interval.ms]": ${EVENT_CONSUMER_DEFAULTS_MAX_POLL_INTERVAL_MS:300000}
+    "[session.timeout.ms]": ${EVENT_CONSUMER_DEFAULTS_SESSION_TIMEOUT_MS:300000}
+    "[heartbeat.interval.ms]": ${EVENT_CONSUMER_DEFAULTS_HEARTBEAT_INTERVAL_MS:3000}
+    "[enable.auto.commit]": ${EVENT_CONSUMER_DEFAULTS_ENABLE_AUTO_COMMIT:false}
+    "[auto.offset.reset]": ${EVENT_CONSUMER_DEFAULTS_AUTO_OFFSET_RESET:latest}
+    "[fetch.max.bytes]": ${EVENT_CONSUMER_DEFAULTS_FETCH_MAX_BYTES:52428800}
+    "[fetch.max.wait.ms]": ${EVENT_CONSUMER_DEFAULTS_FETCH_MAX_WAIT_MS:500}
+  producer-props-defaults:
+    "[bootstrap.servers]": ${EVENT_HANDLER_BOOTSTRAP_SERVERS:127.0.0.1:9092,127.0.0.1:9093}
+    "[retries]": ${EVENT_PRODUCER_DEFAULTS_RETRIES:10}
+    "[batch.size]": ${EVENT_PRODUCER_DEFAULTS_BATCH_SIZE:5242880}
+    "[linger.ms]": ${EVENT_PRODUCER_DEFAULTS_LINGER_MS:100}
+    "[buffer.memory]": ${EVENT_PRODUCER_DEFAULTS_BUFFER_MEMORY:33554432}
+    "[key.serializer]": org.apache.kafka.common.serialization.StringSerializer
+    "[value.serializer]": org.springframework.kafka.support.serializer.JsonSerializer
+    "[acks]": "1"
+    "[timeout.ms]": ${EVENT_PRODUCER_DEFAULTS_TIMEOUT_MS:300000}
+
+
+custom-producer-default:
+  props:
+    "[bootstrap.servers]": ${EVENT_HANDLER_BOOTSTRAP_SERVERS:127.0.0.1:9092,127.0.0.1:9093}
+    "[retries]": ${EVENT_CUSTOM_PRODUCER_DEFAULTS_RETRIES:10}
+    "[batch.size]": ${EVENT_CUSTOM_PRODUCER_DEFAULTS_BATCH_SIZE:5242880}
+    "[linger.ms]": ${EVENT_CUSTOM_PRODUCER_DEFAULTS_LINGER_MS:100}
+    "[buffer.memory]": ${EVENT_CUSTOM_PRODUCER_DEFAULTS_BUFFER_MEMORY:33554432}
+    "[key.serializer]": org.apache.kafka.common.serialization.StringSerializer
+    "[value.serializer]": org.springframework.kafka.support.serializer.JsonSerializer
+    "[acks]": "1"
+    "[timeout.ms]": ${EVENT_CUSTOM_PRODUCER_DEFAULTS_TIMEOUT_MS:300000}
