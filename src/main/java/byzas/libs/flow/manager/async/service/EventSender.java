@@ -25,8 +25,7 @@ public class EventSender {
 
     public CompletableFuture<Void> send(EventDto event) {
         String topic = eventsConfig.getEvents().get(event.getName()).get(event.getStep()).getConsumer().getTopic();
-        KafkaTemplate<String, EventDto> template = eventServiceKafkaConfig.getProducer(event.getName(), event.getStep());
-        return template.send(topic, event.getId(), event).completable().thenApply(any -> null);
+        return customProducer.send(topic, event.getId(), event).completable().thenApply(any -> null);
     }
 
     public CompletableFuture<Void> sendAll(List<EventDto> events) {

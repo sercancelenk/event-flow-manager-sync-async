@@ -10,7 +10,6 @@ import lombok.ToString;
 @Setter
 @JsonInclude(JsonInclude.Include.NON_ABSENT)
 @ToString
-@Builder
 public class FixedBackoffMeta {
     private long intervalMinutes;
     private long maxElapsedTimeMinutes;
