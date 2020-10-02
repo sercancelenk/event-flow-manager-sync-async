@@ -60,5 +60,4 @@ public class RedisCacheService {
                 .thenApplyAsync(Function.identity(), cpuOperationsExecutor);
     }
 
-
 }

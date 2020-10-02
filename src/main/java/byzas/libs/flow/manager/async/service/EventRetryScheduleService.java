@@ -123,7 +123,8 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
                                                 return CompletableFuture.completedFuture(false);
                                             })
                                             .thenCompose(eventDtoFuture -> cacheService
-                                                    .setWithExpire(String.format("backoff.%s", eventDtoWithScheduledtime.getId()), asJson(objectMapper, backoffDto), Duration.ofDays(60)));
+                                                    .setWithExpire(String.format("backoff.%s", eventDtoWithScheduledtime.getId()), asJson(objectMapper, backoffDto), Duration.ofDays(60)))
+                                            .thenCompose(any -> cacheService.remove(String.format("%s.%s", step.getConsumer().getTopic(), eventDto.getId())));
                                 } else {
                                     log.debug("[RETRY_SCHEDULE] Scheduling event stopped!, Backoff stopped. Event : {}", eventDto.getId());
                                     Throwable t = execution.getExhausted().get(eventDto);
