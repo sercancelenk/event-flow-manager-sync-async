@@ -5,9 +5,9 @@ import byzas.libs.flow.manager.async.config.kafka.props.EventsConfig;
 import byzas.libs.flow.manager.async.config.kafka.props.Step;
 import byzas.libs.flow.manager.async.model.event.EventDto;
 import byzas.libs.flow.manager.async.model.event.EventStateDto;
+import byzas.libs.flow.manager.async.model.event.Execution;
 import byzas.libs.flow.manager.async.model.exception.ExecutionFailedException;
 import byzas.libs.flow.manager.async.model.exception.ExhaustedAndRetryDisableException;
-import byzas.libs.flow.manager.async.model.event.Execution;
 import byzas.libs.flow.manager.util.SpringContext;
 import byzas.libs.flow.manager.util.extensions.JsonSupport;
 import lombok.extern.log4j.Log4j2;
@@ -110,7 +110,7 @@ public abstract class EventFlowListener<T, V>
             Optional<EventStateDto> state = ofNullable(execution.getState().get(event.getId()));
             return state.map(s -> {
                 boolean canRetry = s.canRetry(execution.getStep().getConsumer().getRetryCount());
-                log.debug("EventState, canRetry : {}, state : {}", canRetry, s);
+                log.debug("[IS_RETRIABLE] EventState, canRetry : {}, state : {}", canRetry, s);
                 return canRetry;
             }).orElse(true);
         }).collect(toList());
@@ -123,10 +123,11 @@ public abstract class EventFlowListener<T, V>
                 execution.getToBeProcessed().stream()
                         .collect(toMap(Function.identity(), item -> {
                             try {
-                                log.debug("Processing event {} -> {}", item.getName(), item);
+                                int retryCount = Optional.ofNullable(execution.getState().get(item.getId())).map(s -> s.getRetryCount()).orElse(0);
+                                log.debug("[PROCESS] EventName: {}, Step: {}, retryCount: {}, event: {}", item.getName(), item.getStep(), retryCount, item);
                                 return process(item);
                             } catch (Exception e) {
-                                log.error("Exception when processing event : {}", item, e);
+                                log.error("[PROCESS] Exception when processing event : {}", item, e);
                                 CompletableFuture<V> completableFuture = new CompletableFuture<>();
                                 completableFuture.completeExceptionally(e);
                                 return completableFuture;
@@ -148,14 +149,11 @@ public abstract class EventFlowListener<T, V>
                         EventDto<T> event = v.getKey();
                         try {
                             v.getValue().get(); // this will throw ExecutionException
-                        } catch (ExhaustedAndRetryDisableException cire) {
-                            log.error("CancelInstantReplayException occured while processing event. Event will not instant replay. Message: {}, Cause: {}", cire.getMessage(), cire.getCause(), cire);
-                            m.put(event, cire);
                         } catch (ExecutionException e) {
-                            log.error("Error occured while processing event. Message: {}, Cause: {}", e.getMessage(), e.getCause(), e);
+                            log.error("[PROCESS] Error occured while processing event. Message: {}, Cause: {}", e.getMessage(), e.getCause(), e);
                             m.put(event, e.getCause());
                         } catch (InterruptedException i) {
-                            log.error("Interrupted when accumulating errors in process", i);
+                            log.error("[PROCESS] Interrupted when accumulating errors in process", i);
                         }
                     }, HashMap::putAll);
 
@@ -168,6 +166,7 @@ public abstract class EventFlowListener<T, V>
                         if (t instanceof ExhaustedAndRetryDisableException) {
                             ExhaustedAndRetryDisableException exhaustedAndRetryDisableException = (ExhaustedAndRetryDisableException) t;
                             if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getCancelInstantRetry())) {
+                                log.debug("[PROCESS] Instant Retry is cancelled by user. event: {}", event);
                                 // set retry count == max count for further state redis save
                                 retryCount = maxRetryCount;
                                 EventStateDto eventState = ofNullable(execution.getState().get(event.getId()))
@@ -192,12 +191,11 @@ public abstract class EventFlowListener<T, V>
         Step step = execution.getStep();
         CompletableFuture<Void> result = CompletableFuture.allOf();
         if (step.isTraceDb()) {
-            log.debug("Before trace execution with topic : {} , step : {} ", execution.getTopic(),
-                    execution.getStep());
+            log.debug("[TRACE_DB] topic : {} , step : {} ", execution.getTopic(), execution.getStep());
             FlowTraceService<T, V> flowTraceService = (FlowTraceService<T, V>) SpringContext.applicationContext.getBean("flowTraceService");
             result = result.thenCompose(any -> flowTraceService.trace(execution));
         } else {
-            log.debug("Trace execution with topic : {} , step : {} skipped because traceDB param is false", execution.getTopic(),
+            log.debug("[TRACE_DB] Trace execution with topic : {} , step : {} skipped because traceDB param is false", execution.getTopic(),
                     execution.getStep());
         }
         return result.thenApply(any -> execution);
@@ -207,7 +205,7 @@ public abstract class EventFlowListener<T, V>
         Optional<Throwable> mayBeException = Optional.ofNullable(e.getCause());
         if (mayBeException.isPresent() && mayBeException.get() instanceof ExecutionFailedException) {
             ExecutionFailedException executionFailedException = (ExecutionFailedException) e.getCause();
-            log.error("Temporary Error, batch will be polled again, execution : {}"
+            log.error("[TRIGGER_REPLAY_IF_FAILED] Temporary Error, batch will be polled again, execution : {}"
                     , executionFailedException.getExecution(), executionFailedException.getCause());
             throw executionFailedException;
         }
@@ -215,13 +213,13 @@ public abstract class EventFlowListener<T, V>
     }
 
     private void logErrorAndAcknowledge(Execution<T, V> execution, Acknowledgment acknowledgment, Exception e) {
-        log.error("Exception when processing polledData, won't be polled again, execution : {}", execution, e);
+        log.error("[ACKNOWLEDGE] Event is acknowleding. This means that handler won't be polled data again. execution : {}", execution, e);
         acknowledgment.acknowledge();
     }
 
     private void replayForFailedEvents(Execution<T, V> execution) {
         if (execution.hasEventsFailed()) {
-            throw new ExecutionFailedException(execution, new RuntimeException("There are failed events"));
+            throw new ExecutionFailedException(execution, new RuntimeException("[REPLAY_FAILED_EVENTS] There are failed events"));
         }
     }
 }

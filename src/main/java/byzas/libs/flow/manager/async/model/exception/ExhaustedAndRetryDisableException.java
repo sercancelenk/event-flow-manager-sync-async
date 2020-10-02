@@ -12,6 +12,7 @@ public class ExhaustedAndRetryDisableException extends RuntimeException {
     private Boolean doActionInScheduledRetriesEnd;
     private Boolean doActionInInstantRetriesEnd;
     private Boolean cancelInstantRetry;
+    private Boolean cancelScheduleRetry;
     private Boolean logFatalInScheduledRetriesEnd;
     private Boolean logFatalInInstantRetriesEnd;
 }

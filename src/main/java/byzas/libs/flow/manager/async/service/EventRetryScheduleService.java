@@ -59,27 +59,19 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
         return CompletableFuture.allOf();
     };
 
-    @PostConstruct
-    private void init() {
-        Set<String> activeProfiles = new HashSet<>(Arrays.asList(environment.getActiveProfiles()));
-        isQuartzJdbcSupportEnabled = activeProfiles.contains(QUARTZ_JDBC_PROFILE);
-    }
-
     public CompletableFuture<Execution> scheduleIfExhaustedOrSendToInstantExhaustedQueue(Execution<T, V> execution) {
         Step step = execution.getStep();
         CompletableFuture<Void> result = CompletableFuture.allOf();
-        log.debug("ScheduledRetry : {}, execution.getExhausted().size() : {}", step.isScheduledRetry(), execution.getExhausted().size());
         if (step.isScheduledRetry()) {
-            if (!isQuartzJdbcSupportEnabled) {
-                log.warn("Scheduled Retry is enabled but {} profile is not set.Skipping all scheduled retries.", QUARTZ_JDBC_PROFILE);
-            } else if (execution.getExhausted().size() > 0) {
+            if (execution.getExhausted().size() > 0) {
+                log.debug("[RETRY_SCHEDULE] Schedule retry is enable");
                 Optional<ExponentialBackoffMeta> mayBeExponentialRetryMeta = Optional.ofNullable(step.getScheduledRetryExponentialBackoffMeta());
                 boolean isExponentionalRetry = mayBeExponentialRetryMeta.isPresent();
                 List<CompletableFuture<Void>> scheduleResults = execution.getExhausted().keySet().stream()
                         .map(eventDto -> {
                             CompletableFuture<String> backoffJson = cacheService.get(String.format("backoff.%s", eventDto.getId()));
                             CompletableFuture<BackoffDto> backoffDtoFuture = backoffJson.thenApply(json -> {
-                                log.debug("isEponentialRetry : {},Json from backoff : {}", isExponentionalRetry, json);
+                                log.debug("[RETRY_SCHEDULE] isEponentialRetry : {},Json from backoff : {}", isExponentionalRetry, json);
                                 if (Optional.ofNullable(json).isPresent()) {
                                     return isExponentionalRetry ? (fromJson(objectMapper, ExponentialBackoffDto.class, json))
                                             : (fromJson(objectMapper, FixedBackoffDto.class, json));
@@ -98,13 +90,25 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
                                 String jobGroupName = String.format("jobGroup_%s_%s", eventDto.getId(), randomUUID);
                                 long nextBackOff = backoffDto.nextBackOff();
                                 if (nextBackOff != BackoffDto.STOP) {
-                                    log.debug("Scheduling event - not stopped, event : {}", eventDto.getId());
+                                    Throwable t = execution.getExhausted().get(eventDto);
+                                    if (t instanceof ExhaustedAndRetryDisableException) {
+                                        ExhaustedAndRetryDisableException exhaustedAndRetryDisableException = (ExhaustedAndRetryDisableException) t;
+
+                                        if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getCancelScheduleRetry())) {
+                                            log.info("[RETRY_SCHEDULE] Scheduling retry is cancelled by user circumstances: topic= {}, eventDto={}", step.getConsumer().getTopic(), eventDto);
+                                            return CompletableFuture.allOf();
+                                        }
+
+                                    }
+
                                     Date eventScheduledTime = new Date(currentTime + nextBackOff * 60 * 1000);
                                     String cron = generateCronExpression(eventScheduledTime);
                                     EventDto<T> eventDtoWithScheduledtime = eventDto.withScheduleTime(eventScheduledTime);
                                     Map<String, String> context = new HashMap<>();
                                     context.put("event", asJson(objectMapper, eventDtoWithScheduledtime));
+
                                     return CompletableFuture.supplyAsync(() -> {
+                                        log.debug("[RETRY_SCHEDULE] Event is scheduling to next time {} , event : {}", eventScheduledTime, eventDto.getId());
                                         schedule(jobName, jobGroupName, cron, EventScheduledJob.class, context);
                                         return true;
                                     }, scheduleOperationsExecutor)
@@ -121,13 +125,13 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
                                             .thenCompose(eventDtoFuture -> cacheService
                                                     .setWithExpire(String.format("backoff.%s", eventDtoWithScheduledtime.getId()), asJson(objectMapper, backoffDto), Duration.ofDays(60)));
                                 } else {
-                                    log.debug("Scheduling event stopped!, Backoff stopped. Event : {}", eventDto.getId());
+                                    log.debug("[RETRY_SCHEDULE] Scheduling event stopped!, Backoff stopped. Event : {}", eventDto.getId());
                                     Throwable t = execution.getExhausted().get(eventDto);
                                     if (t instanceof ExhaustedAndRetryDisableException) {
                                         ExhaustedAndRetryDisableException exhaustedAndRetryDisableException = (ExhaustedAndRetryDisableException) t;
 
                                         if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getLogFatalInScheduledRetriesEnd())) {
-                                            log.fatal("EventService Schedule Retry Alarm: topic= {}, eventDto={}", step.getConsumer().getTopic(), eventDto);
+                                            log.fatal("[RETRY_SCHEDULE] EventService Schedule Retry Alarm: topic= {}, eventDto={}", step.getConsumer().getTopic(), eventDto);
                                         }
 
                                         if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getDoActionInScheduledRetriesEnd())) {
@@ -140,7 +144,7 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
                                     return CompletableFuture.allOf();
                                 }
                             }).exceptionally(t -> {
-                                log.error("Exception when scheduling event retry : {}", eventDto, t);
+                                log.error("[RETRY_SCHEDULE] Exception when scheduling event retry : {}", eventDto, t);
                                 return null;
                             });
                         })
@@ -158,7 +162,7 @@ public class EventRetryScheduleService<T, V> implements JsonSupport, SchedulerSu
                             if (t instanceof ExhaustedAndRetryDisableException) {
                                 ExhaustedAndRetryDisableException exhaustedAndRetryDisableException = (ExhaustedAndRetryDisableException) t;
                                 if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getLogFatalInInstantRetriesEnd())) {
-                                    log.fatal("EventService Instant Reply Alarm: topic= {}, eventDto={}", step.getConsumer().getTopic(), eventDto);
+                                    log.fatal("[RETRY_SCHEDULE] EventService Instant Reply Alarm: topic= {}, eventDto={}", step.getConsumer().getTopic(), eventDto);
                                 }
 
                                 if (BooleanUtils.isTrue(exhaustedAndRetryDisableException.getDoActionInInstantRetriesEnd())) {

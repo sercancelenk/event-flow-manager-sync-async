@@ -1,9 +1,10 @@
 package byzas.libs.flow.manager.async.service;
 
-import byzas.libs.flow.manager.async.config.executors.ExecutorsConfig;
-import byzas.libs.flow.manager.async.config.jpa.entity.FlowStepEntity;
-import byzas.libs.flow.manager.async.config.jpa.entity.FlowStepStatus;
 import byzas.libs.flow.manager.async.config.executors.CustomThreadPoolExecutor;
+import byzas.libs.flow.manager.async.config.executors.ExecutorsConfig;
+import byzas.libs.flow.manager.async.config.jpa.entity.EventEntity;
+import byzas.libs.flow.manager.async.config.jpa.entity.EventStepEntity;
+import byzas.libs.flow.manager.async.config.jpa.entity.EventStepStatus;
 import byzas.libs.flow.manager.async.model.event.EventDto;
 import byzas.libs.flow.manager.async.model.event.Execution;
 import byzas.libs.flow.manager.util.extensions.JsonSupport;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 @Log4j2
-public class FlowTraceService<T, V> implements JsonSupport {
+class FlowTraceService<T, V> implements JsonSupport {
 
     private final ObjectMapper objectMapper;
     private final FlowService flowService;
@@ -50,19 +51,17 @@ public class FlowTraceService<T, V> implements JsonSupport {
         return flowService.getFlows(flowIds)
                 .thenApply(flowMap -> {
                     log.debug("Flow map : {}", flowMap);
+
                     return events.entrySet().stream()
                             .filter(entry -> entry.getKey().getFlowId() != null)
                             .map(entry -> {
                                 EventDto<T> event = entry.getKey();
-                                return FlowStepEntity.builder()
-                                        .eventId(event.getId())
-                                        .flow(flowMap.get(event.getFlowId()))
-                                        .input(asJson(objectMapper, event.getData()))
-                                        .output(asJson(objectMapper, entry.getValue()))
-                                        .status(FlowStepStatus.COMPLETED)
-                                        .stepId(event.getStep())
-                                        .transactionId(event.getTransactionId())
-                                        .build();
+                                EventEntity flow = flowMap.get(event.getFlowId());
+                                EventStepEntity step = flow.stepFromMap(event.getStep()).orElseThrow(() -> new RuntimeException("Step not found in flow steps"));
+                                step.setStatus(EventStepStatus.COMPLETED);
+                                step.setInput(asJson(objectMapper, event.getData()));
+                                step.setOutput(asJson(objectMapper, entry.getValue()));
+                                return step;
                             }).collect(Collectors.toList());
                 })
                 .thenCompose(this::save);
@@ -79,20 +78,18 @@ public class FlowTraceService<T, V> implements JsonSupport {
                                 .filter(entry -> entry.getKey().getFlowId() != null)
                                 .map(entry -> {
                                     EventDto<T> event = entry.getKey();
-                                    return FlowStepEntity.builder()
-                                            .eventId(event.getId())
-                                            .flow(flowMap.get(event.getFlowId()))
-                                            .input(asJson(objectMapper, event.getData()))
-                                            .output(entry.getValue().getMessage())
-                                            .status(FlowStepStatus.ERROR)
-                                            .stepId(event.getStep())
-                                            .transactionId(event.getTransactionId())
-                                            .build();
+                                    EventEntity flow = flowMap.get(event.getFlowId());
+                                    EventStepEntity step = flow.stepFromMap(event.getStep()).orElseThrow(() -> new RuntimeException("Step not found in flow steps"));
+                                    step.setStatus(EventStepStatus.ERROR);
+                                    step.setErrorMessage(entry.getValue().getMessage());
+                                    step.setInput(asJson(objectMapper, event.getData()));
+                                    step.setOutput(asJson(objectMapper, entry.getValue()));
+                                    return step;
                                 }).collect(Collectors.toList()))
                 .thenCompose(this::save);
     }
 
-    private CompletableFuture<Void> save(List<FlowStepEntity> flowStepEntities) {
+    private CompletableFuture<Void> save(List<EventStepEntity> flowStepEntities) {
         log.debug("Before saving flowStep entities : {}", flowStepEntities);
         return CompletableFuture.supplyAsync(() -> flowService.saveFlowStepAll(flowStepEntities), sardisJpaDbOperationsExecutor)
                 .exceptionally(t -> {

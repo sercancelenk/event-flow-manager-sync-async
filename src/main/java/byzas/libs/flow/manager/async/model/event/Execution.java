@@ -106,11 +106,11 @@ public class Execution<T, V> {
                             if (Optional.ofNullable(header).isPresent()) {
                                 DeserializationException ex = (DeserializationException) new ObjectInputStream(
                                         new ByteArrayInputStream(header.value())).readObject();
-                                log.error("DeserializationException", ex);
-                                log.error("Can not parse kafka data json, will be skipped : {}", new String(ex.getData()));
+                                log.error("[POLLED_DATA] DeserializationException", ex);
+                                log.error("[POLLED_DATA] Can not parse kafka data json, will be skipped : {}", new String(ex.getData()));
                             }
                         } catch (Exception e) {
-                            log.error("Exception when getting kafka exception header", e);
+                            log.error("[POLLED_DATA] Exception when getting kafka exception header", e);
                         }
                         return false;
                     }

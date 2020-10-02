@@ -1,13 +1,12 @@
 package byzas.libs.flow.manager.async.config.jpa.repository;
 
-import byzas.libs.flow.manager.async.config.jpa.entity.FlowEntity;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import byzas.libs.flow.manager.async.config.jpa.entity.EventEntity;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
 import java.util.List;
 
-public interface FlowRepository extends PagingAndSortingRepository<FlowEntity, Long> {
-    List<FlowEntity> findByIdIn(List<Long> ids);
+public interface FlowRepository extends PagingAndSortingRepository<EventEntity, Long> {
+    List<EventEntity> findAllByIdIn(List<Long> ids);
 
-    List<FlowEntity> findAllByKeyAndTypeAndKeyType(String subscriptionId, String type, String keyType);
+    List<EventEntity> findAllByKeyAndEventType(String key, String eventType);
 }

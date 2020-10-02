@@ -23,11 +23,13 @@ public class HealthCheckMonitorService {
     }
 
     private void isDBHealthy() {
+        log.debug("[HEALT_CHECK] Db is checking..");
         Pageable limit = PageRequest.of(0, 1);
         flowRepository.findAll(limit);
     }
 
     private CompletableFuture<Void> isCacheHealthy() {
+        log.debug("[HEALT_CHECK] Redis is checking..");
         return cacheService.get("any")
                 .thenApply(any -> null);
     }

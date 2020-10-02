@@ -2,11 +2,13 @@ package byzas.libs.flow.manager.async.config.jpa.entity;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum FlowStepStatus {
+public enum EventStepStatus {
+    INITIAL,
+    RUNNING,
     ERROR,
     COMPLETED;
 
-    private FlowStepStatus() {
+    private EventStepStatus() {
     }
 
     @JsonValue

@@ -17,9 +17,12 @@ public class EventStateDto {
     private int step;
     private String eventId;
     private int retryCount;
+    @Builder.Default
+    private boolean processed = false;
+
 
     public boolean canRetry(int maxRetry) {
-        return retryCount < maxRetry;
+        return !processed && (retryCount < maxRetry);
     }
 
     public EventStateDto withRetryCount(int retryCount) {
@@ -28,6 +31,7 @@ public class EventStateDto {
                 .eventName(getEventName())
                 .retryCount(retryCount)
                 .step(getStep())
+                .processed(isProcessed())
                 .build();
     }
 

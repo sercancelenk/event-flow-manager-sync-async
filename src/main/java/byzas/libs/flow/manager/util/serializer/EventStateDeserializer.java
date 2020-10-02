@@ -16,6 +16,7 @@ public class EventStateDeserializer extends StdDeserializer<EventStateDto> {
     private static final String STEP_ATTRIBUTE = "step";
     private static final String EVENT_ID_ATTRIBUTE = "eventId";
     private static final String RETRY_COUNT_ATTRIBUTE = "retryCount";
+    private static final String PROCESSED_ATTRIBUTE = "processed";
 
     protected EventStateDeserializer() {
         this(null);
@@ -35,7 +36,8 @@ public class EventStateDeserializer extends StdDeserializer<EventStateDto> {
             int step = root.get(STEP_ATTRIBUTE).intValue();
             String eventId = root.get(EVENT_ID_ATTRIBUTE).asText();
             int retryCount = ofNullable(root.get(RETRY_COUNT_ATTRIBUTE)).map(JsonNode::asInt).orElse(0);
-            return EventStateDto.builder().eventName(eventName).step(step).eventId(eventId).retryCount(retryCount).build();
+            boolean processed = ofNullable(root.get(PROCESSED_ATTRIBUTE)).map(JsonNode::asBoolean).orElse(false);
+            return EventStateDto.builder().eventName(eventName).step(step).eventId(eventId).retryCount(retryCount).processed(processed).build();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

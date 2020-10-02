@@ -36,7 +36,7 @@ public class EventExecutionStateService<T, V> implements JsonSupport {
     public CompletableFuture<Execution<T, V>> getEventExecutionStates(Execution<T, V> execution) {
         List<ConsumerRecord<String, EventDto<T>>> data = execution.getPolledData();
         List<String> keys = data.stream().map(cr -> getEventStateKey(execution.getTopic(), cr.value().getId())).collect(toCollection(ArrayList::new));
-        log.debug("EventState keys : {}", keys);
+        log.debug("[EVENT_EXECUTION_STATES] EventState keys : {}", keys);
         return cacheService.multiGet(keys)
                 .handle((r, t) -> {
                     Optional<Throwable> mayBeException = Optional.ofNullable(t);
@@ -50,7 +50,7 @@ public class EventExecutionStateService<T, V> implements JsonSupport {
                             .filter(j -> !StringUtils.isEmpty(j))
                             .map(j -> fromJson(objectMapper, EventStateDto.class, j))
                             .collect(toMap(EventStateDto::getEventId, Functions.identity()));
-                    log.debug("Event States : {}", states);
+                    log.debug("[EVENT_EXECUTION_STATES] Event States : {}", states);
                     return execution.withState(stateMap);
                 });
     }
@@ -70,8 +70,9 @@ public class EventExecutionStateService<T, V> implements JsonSupport {
                             asJson(objectMapper, EventStateDto.builder()
                                     .eventId(entry.getKey().getId())
                                     .eventName(entry.getKey().getName()).step(entry.getKey().getStep())
+                                    .processed(true)
                                     .build())));
-            log.debug("Saving state success : {}", stateForSuccess);
+            log.debug("[SAVE_EVENT_STATE] Saving state success : {}", stateForSuccess);
             return cacheService.multiSetWithExpire(stateForSuccess, Duration.ofMinutes(execution.getStep().getConsumer().getStateExpirationMinutes()));
         }
         return CompletableFuture.completedFuture(null);
